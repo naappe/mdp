@@ -5,21 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Voter Dashboard - Election Management</title>
 
-    <!-- External CSS -->
     <link rel="stylesheet" href="style.css" />
-
-    <!-- Supabase JS Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-    </script>
-
-    <!-- Font Awesome Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
-    </script>
-
-    <!-- Config & App -->
     <script type="importmap">
         {
             "imports": {
@@ -110,7 +100,7 @@
             </div>
         </div>
 
-        <!-- Charts Row -->
+        <!-- Charts -->
         <div class="charts-grid">
             <div class="chart-card">
                 <h3><i class="fas fa-venus-mars"></i> Gender Distribution</h3>
@@ -122,28 +112,22 @@
             </div>
         </div>
 
-        <!-- ============================================
-        FILTERS BAR - STICKY
-        ============================================ -->
+        <!-- Filters -->
         <div class="filters-bar" id="filtersBar">
             <div class="filter-row">
                 <input type="text" id="searchInput" placeholder="🔍 Search name, ID, or house..." />
-
                 <select id="sexFilter">
                     <option value="">All Genders</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                 </select>
-
                 <select id="partyFilter">
                     <option value="">All Parties</option>
                 </select>
-
                 <select id="houseFilter">
                     <option value="">All Houses</option>
                 </select>
-
                 <div class="age-range">
                     <span>Age:</span>
                     <input type="number" id="ageMin" placeholder="Min" min="0" max="150" />
@@ -151,11 +135,7 @@
                     <input type="number" id="ageMax" placeholder="Max" min="0" max="150" />
                 </div>
             </div>
-
-            <div class="filter-row filter-chips" id="filterChips">
-                <!-- Dynamic filter chips will be added here -->
-            </div>
-
+            <div class="filter-row filter-chips" id="filterChips"></div>
             <div class="filter-row filter-actions">
                 <button class="btn-search" id="searchBtn"><i class="fas fa-search"></i> Search</button>
                 <button class="btn-reset" id="resetBtn"><i class="fas fa-undo"></i> Reset</button>
@@ -163,9 +143,7 @@
             </div>
         </div>
 
-        <!-- ============================================
-        TOP HOUSES - COLLAPSIBLE
-        ============================================ -->
+        <!-- Top Houses -->
         <div class="top-houses-section">
             <div class="top-houses-header" id="topHousesToggle">
                 <h2><i class="fas fa-trophy"></i> Top Houses <span id="topHousesCount"></span></h2>
@@ -176,13 +154,9 @@
             </div>
         </div>
 
-        <!-- ============================================
-        COMPACT VOTER TABLE
-        ============================================ -->
+        <!-- Voter Table -->
         <div class="voter-table-section">
             <h2><i class="fas fa-list"></i> Voters <span id="voterCountDisplay"></span></h2>
-
-            <!-- Compact Table -->
             <div id="voterTableWrapper">
                 <table class="voter-table" id="voterTable">
                     <thead>
@@ -193,18 +167,13 @@
                             <th>Age</th>
                             <th>House</th>
                             <th>Party</th>
-                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="voterTableBody">
-                        <tr>
-                            <td colspan="7" class="loading-state">Loading voters...</td>
-                        </tr>
+                        <tr><td colspan="6" class="loading-state">Loading voters...</td></tr>
                     </tbody>
                 </table>
             </div>
-
-            <!-- Pagination -->
             <div class="pagination" id="pagination">
                 <button id="prevPage"><i class="fas fa-chevron-left"></i></button>
                 <span id="pageInfo">Page 1 of 1</span>
@@ -215,20 +184,20 @@
     </div>
 
     <!-- ============================================
-    VOTER DETAIL POPUP
+    VOTER DETAIL POPUP - MODERN
     ============================================ -->
     <div class="voter-popup-overlay" id="voterPopup">
         <div class="voter-popup">
             <button class="voter-popup-close" id="voterPopupClose">&times;</button>
+            <button class="popup-back-btn" id="popupBackBtn">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
             <div class="voter-popup-content" id="voterPopupContent">
                 <div class="popup-loading">Loading...</div>
             </div>
         </div>
     </div>
 
-    <!-- ============================================
-    EXTERNAL JAVASCRIPT (Module)
-    ============================================ -->
     <script type="module" src="app.js"></script>
 
 </body>
