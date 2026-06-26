@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>MDP Voter Tracker</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    <style>
+        /* ============================================
+           RESET & BASE
+           ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f6f3;
+            color: #1a1a2e;
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* ============================================
+           TOP BAR
+           ============================================ */
+        .top-bar {
+            background: linear-gradient(135deg, #f5a623, #f7c948);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid #d4891b;
+            flex-wrap: wrap;
+            gap: 10px;
+            box-shadow: 0 2px 12px rgba(245, 166, 35, 0.2);
+        }
+
+        .top-bar .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #1a1a2e;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .top-bar .logo i {
+            color: #1a1a2e;
+            font-size: 24px;
+        }
+
+        .top-bar .stats-mini {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            flex-wrap: wrap;
+        }
+
+        .top-bar .stats-mini span {
+            color: #1a1a2e;
+            background: rgba(255, 255, 255, 0.3);
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .top-bar .stats-mini .num {
+            background: rgba(26, 26, 46, 0.1);
+            padding: 0 8px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+
+        /* ============================================
+           CONTAINER
+           ============================================ */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px 20px;
+        }
+
+        /* ============================================
+           DASHBOARD CARDS
+           ============================================ */
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .dash-card {
+            background: white;
+            border-radius: 14px;
+            padding: 18px 20px;
+            border: 1px solid #f0e8d8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+        }
+
+        .dash-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(245, 166, 35, 0.12);
+        }
+
+        .dash-card .card-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .dash-card .card-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-top: 4px;
+        }
+
+        .dash-card .card-sub {
+            font-size: 12px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .dash-card .card-icon {
+            float: right;
+            font-size: 28px;
+            opacity: 0.3;
+        }
+
+        .dash-card.target-card .card-number { color: #f5a623; }
+        .dash-card.reached-card .card-number { color: #2ecc71; }
+        .dash-card.pending-card .card-number { color: #f39c12; }
+        .dash-card.notvote-card .card-number { color: #e74c3c; }
+
+        /* ============================================
+           CHARTS SECTION
+           ============================================ */
+        .charts-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .chart-box {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid #f0e8d8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .chart-box h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 12px;
+        }
+
+        .chart-box h3 i {
+            color: #f5a623;
+            margin-right: 8px;
+        }
+
+        .chart-box canvas {
+            max-height: 220px;
+            max-width: 100%;
+        }
+
+        /* ============================================
+           TARGET PROGRESS
+           ============================================ */
+        .target-progress {
+            background: white;
+            border-radius: 14px;
+            padding: 18px 20px;
+            border: 1px solid #f0e8d8;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .target-progress .target-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .target-progress .target-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .target-progress .target-header h3 i {
+            color: #f5a623;
+            margin-right: 8px;
+        }
+
+        .target-progress .target-header .target-stats {
+            font-size: 13px;
+            color: #888;
+        }
+
+        .target-progress .target-header .target-stats strong {
+            color: #1a1a2e;
+        }
+
+        .target-progress .progress-bar-wrapper {
+            width: 100%;
+            height: 28px;
+            background: #f5ede0;
+            border-radius: 14px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #f0e8d8;
+        }
+
+        .target-progress .progress-bar-wrapper .progress-bar {
+            height: 100%;
+            border-radius: 14px;
+            transition: width 0.8s ease;
+            background: linear-gradient(90deg, #f5a623, #f7c948);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a1a2e;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .target-progress .progress-bar-wrapper .progress-bar.over-target {
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .target-progress .target-input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .target-progress .target-input-row label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .target-progress .target-input-row input {
+            padding: 8px 12px;
+            border: 2px solid #e8ddd0;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 100px;
+            background: #faf8f5;
+        }
+
+        .target-progress .target-input-row input:focus {
+            outline: none;
+            border-color: #f5a623;
+            box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.1);
+        }
+
+        .target-progress .target-input-row button {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            background: #f5a623;
+            color: #1a1a2e;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .target-progress .target-input-row button:hover {
+            background: #d4891b;
+            transform: scale(1.02);
+        }
+
+        .target-progress .target-input-row .target-status {
+            font-size: 12px;
+            color: #888;
+            margin-left: auto;
+        }
+
+        .target-progress .target-input-row .target-status .status-reached {
+            color: #2ecc71;
+            font-weight: 700;
+        }
+
+        .target-progress .target-input-row .target-status .status-need {
+            color: #e74c3c;
+            font-weight: 700;
+        }
+
+        /* ============================================
+           FILTERS BAR
+           ============================================ */
+        .filters-bar {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid #f0e8d8;
+            margin-bottom: 16px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .filters-bar .search-wrapper {
+            position: relative;
+            flex: 2;
+            min-width: 180px;
+        }
+
+        .filters-bar .search-wrapper input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            border: 2px solid #e8ddd0;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #faf8f5;
+            transition: all 0.3s ease;
+        }
+
+        .filters-bar .search-wrapper input:focus {
+            outline: none;
+            border-color: #f5a623;
+            box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.1);
+        }
+
+        .filters-bar .search-wrapper i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+        }
+
+        .filters-bar select {
+            padding: 8px 12px;
+            border: 2px solid #e8ddd0;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #faf8f5;
+            min-width: 120px;
+            cursor: pointer;
+        }
+
+        .filters-bar select:focus {
+            outline: none;
+            border-color: #f5a623;
+            box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.1);
+        }
+
+        .filters-bar .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filters-bar .btn-primary {
+            background: #f5a623;
+            color: #1a1a2e;
+        }
+
+        .filters-bar .btn-primary:hover {
+            background: #d4891b;
+            transform: scale(1.02);
+        }
+
+        .filters-bar .btn-reset {
+            background: #e8ddd0;
+            color: #555;
+        }
+
+        .filters-bar .btn-reset:hover {
+            background: #d5c8b8;
+        }
+
+        .filters-bar .btn-back {
+            background: #1a1a2e;
+            color: white;
+            display: none;
+        }
+
+        .filters-bar .btn-back:hover {
+            background: #2a2a4e;
+            transform: scale(1.02);
+        }
+
+        .filters-bar .btn-back.show {
+            display: flex;
+        }
+
+        .filters-bar .stats-badge {
+            font-size: 12px;
+            color: #888;
+            margin-left: auto;
+            background: #faf8f5;
+            padding: 4px 12px;
+            border-radius: 16px;
+            border: 1px solid #f0e8d8;
+        }
+
+        .filters-bar .stats-badge strong {
+            color: #1a1a2e;
+        }
+
+        /* ============================================
+           SEARCH RESULT HEADER
+           ============================================ */
+        .search-result-header {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 14px;
+            background: #faf8f5;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            border-left: 4px solid #f5a623;
+        }
+
+        .search-result-header.show {
+            display: flex;
+        }
+
+        .search-result-header .result-text {
+            font-size: 13px;
+            color: #555;
+        }
+
+        .search-result-header .result-text strong {
+            color: #1a1a2e;
+        }
+
+        .search-result-header .clear-search {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: #f5a623;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .search-result-header .clear-search:hover {
+            background: rgba(245, 166, 35, 0.1);
+        }
+
+        /* ============================================
+           GALLERY GRID
+           ============================================ */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 16px;
+            transition: all 0.3s ease;
+        }
+
+        /* ============================================
+           VOTER CARD
+           ============================================ */
+        .voter-card {
+            background: white;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid #f0e8d8;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            animation: fadeUp 0.4s ease forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .voter-card:nth-child(1) { animation-delay: 0.02s; }
+        .voter-card:nth-child(2) { animation-delay: 0.04s; }
+        .voter-card:nth-child(3) { animation-delay: 0.06s; }
+        .voter-card:nth-child(4) { animation-delay: 0.08s; }
+        .voter-card:nth-child(5) { animation-delay: 0.10s; }
+        .voter-card:nth-child(6) { animation-delay: 0.12s; }
+        .voter-card:nth-child(7) { animation-delay: 0.14s; }
+        .voter-card:nth-child(8) { animation-delay: 0.16s; }
+        .voter-card:nth-child(9) { animation-delay: 0.18s; }
+        .voter-card:nth-child(10) { animation-delay: 0.20s; }
+
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .voter-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(245, 166, 35, 0.12);
+            border-color: #f5a623;
+        }
+
+        .voter-card .card-photo {
+            width: 100%;
+            height: 180px;
+            background: #f5ede0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .voter-card .card-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: white;
+            padding: 6px;
+            transition: transform 0.3s ease;
+        }
+
+        .voter-card:hover .card-photo img {
+            transform: scale(1.03);
+        }
+
+        .voter-card .card-photo .no-photo {
+            font-size: 40px;
+            color: #ccc;
+        }
+
+        .voter-card .card-photo .status-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .voter-card .card-photo .status-badge.will-vote {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .voter-card .card-photo .status-badge.not-decide {
+            background: #f39c12;
+            color: white;
+        }
+
+        .voter-card .card-photo .status-badge.not-vote {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .voter-card .card-photo .status-badge.pending {
+            background: rgba(26, 26, 46, 0.7);
+            color: white;
+        }
+
+        .voter-card .card-info {
+            padding: 12px 14px 14px;
+        }
+
+        .voter-card .card-info .name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 2px;
+        }
+
+        .voter-card .card-info .national-id {
+            font-size: 11px;
+            color: #f5a623;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .voter-card .card-info .details {
+            font-size: 11px;
+            color: #888;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .voter-card .card-info .details span i {
+            width: 16px;
+            color: #f5a623;
+            margin-right: 4px;
+            text-align: center;
+        }
+
+        .voter-card .card-info .remarks-preview {
+            font-size: 11px;
+            color: #888;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #f0e8d8;
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .voter-card .card-info .remarks-preview i {
+            color: #f5a623;
+            flex-shrink: 0;
+        }
+
+        /* ============================================
+           LOADING / EMPTY
+           ============================================ */
+        .loading-state {
+            text-align: center;
+            padding: 50px 0;
+            color: #888;
+            grid-column: 1 / -1;
+            font-size: 15px;
+        }
+
+        .loading-state::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-left: 10px;
+            border: 3px solid #f0e8d8;
+            border-top-color: #f5a623;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 50px 0;
+            color: #888;
+            grid-column: 1 / -1;
+            font-size: 16px;
+        }
+
+        .no-results i {
+            font-size: 40px;
+            color: #e8ddd0;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* ============================================
+           POPUP
+           ============================================ */
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .popup-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .popup-box {
+            background: white;
+            border-radius: 20px;
+            padding: 28px 30px;
+            max-width: 460px;
+            width: 94%;
+            max-height: 92vh;
+            overflow-y: auto;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .popup-box .popup-close {
+            float: right;
+            font-size: 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.2s;
+            padding: 4px;
+        }
+
+        .popup-box .popup-close:hover {
+            color: #333;
+        }
+
+        .popup-box .popup-photo {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 12px;
+            background: #f5ede0;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #f0e8d8;
+        }
+
+        .popup-box .popup-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .popup-box .popup-photo .placeholder {
+            font-size: 36px;
+            color: #ccc;
+        }
+
+        .popup-box .popup-name {
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            color: #1a1a2e;
+        }
+
+        .popup-box .popup-id {
+            font-size: 13px;
+            color: #f5a623;
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .popup-box .popup-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 14px;
+            font-size: 13px;
+            padding: 10px 14px;
+            background: #faf8f5;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            border: 1px solid #f0e8d8;
+        }
+
+        .popup-box .popup-details .label {
+            color: #888;
+        }
+
+        .popup-box .popup-details .value {
+            font-weight: 500;
+            text-align: right;
+            color: #1a1a2e;
+        }
+
+        .popup-box .form-group {
+            margin-bottom: 12px;
+        }
+
+        .popup-box .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #555;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .popup-box .form-group label i {
+            color: #f5a623;
+            margin-right: 6px;
+        }
+
+        .popup-box .form-group .phone-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .popup-box .form-group .phone-input-wrapper input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #e8ddd0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #faf8f5;
+            transition: all 0.3s ease;
+        }
+
+        .popup-box .form-group .phone-input-wrapper input:focus {
+            outline: none;
+            border-color: #f5a623;
+            box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.1);
+            background: white;
+        }
+
+        .popup-box .form-group .phone-input-wrapper .current-phone {
+            font-size: 12px;
+            color: #888;
+            white-space: nowrap;
+            background: #f5ede0;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .popup-box .form-group .phone-input-wrapper .current-phone strong {
+            color: #1a1a2e;
+        }
+
+        .popup-box .popup-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .popup-box .popup-actions button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .popup-box .popup-actions .btn-save {
+            background: #f5a623;
+            color: #1a1a2e;
+        }
+
+        .popup-box .popup-actions .btn-save:hover {
+            background: #d4891b;
+            transform: scale(1.02);
+            box-shadow: 0 4px 16px rgba(245, 166, 35, 0.3);
+        }
+
+        .popup-box .popup-actions .btn-close {
+            background: #e8ddd0;
+            color: #555;
+        }
+
+        .popup-box .popup-actions .btn-close:hover {
+            background: #d5c8b8;
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 1024px) {
+            .dashboard-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .top-bar {
+                flex-direction: column;
+                text-align: center;
+                padding: 10px 16px;
+            }
+
+            .top-bar .stats-mini {
+                justify-content: center;
+                gap: 8px;
+            }
+
+            .top-bar .stats-mini span {
+                font-size: 11px;
+                padding: 2px 8px;
+            }
+
+            .dashboard-cards {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .dash-card {
+                padding: 14px 16px;
+            }
+
+            .dash-card .card-number {
+                font-size: 22px;
+            }
+
+            .filters-bar {
+                flex-direction: column;
+                padding: 10px 12px;
+            }
+
+            .filters-bar .search-wrapper {
+                width: 100%;
+            }
+
+            .filters-bar select {
+                width: 100%;
+            }
+
+            .filters-bar .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .filters-bar .stats-badge {
+                margin-left: 0;
+                width: 100%;
+                text-align: center;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 10px;
+            }
+
+            .voter-card .card-photo {
+                height: 140px;
+            }
+
+            .popup-box {
+                padding: 18px 16px;
+            }
+
+            .popup-box .popup-details {
+                grid-template-columns: 1fr;
+            }
+
+            .popup-box .popup-details .value {
+                text-align: left;
+            }
+
+            .popup-box .popup-actions {
+                flex-direction: column;
+            }
+
+            .popup-box .form-group .phone-input-wrapper {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .target-progress .target-input-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .target-progress .target-input-row input {
+                width: 100%;
+            }
+
+            .target-progress .target-input-row .target-status {
+                margin-left: 0;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .dashboard-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 8px;
+            }
+
+            .voter-card .card-photo {
+                height: 120px;
+            }
+
+            .voter-card .card-info .name {
+                font-size: 13px;
+            }
+
+            .voter-card .card-info .details {
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================
+    TOP BAR
+    ============================================ -->
+    <div class="top-bar">
+        <div class="logo">
+            <i class="fas fa-flag"></i>
+            <span>MDP <span style="color:#1a1a2e;">Tracker</span></span>
+        </div>
+        <div class="stats-mini">
+            <span>👥 Total: <span class="num" id="miniTotal">0</span></span>
+            <span>✅ Will Vote: <span class="num" id="miniWillVote">0</span></span>
+            <span>⏳ Not Decide: <span class="num" id="miniNotDecide">0</span></span>
+            <span>❌ Not Vote: <span class="num" id="miniNotVote">0</span></span>
+        </div>
+    </div>
+
+    <!-- ============================================
+    MAIN CONTAINER
+    ============================================ -->
+    <div class="container">
+
+        <!-- ===== DASHBOARD CARDS ===== -->
+        <div class="dashboard-cards">
+            <div class="dash-card target-card">
+                <i class="fas fa-bullseye card-icon"></i>
+                <div class="card-label">🎯 Target</div>
+                <div class="card-number" id="dashTarget">0</div>
+                <div class="card-sub">Voters to reach</div>
+            </div>
+            <div class="dash-card reached-card">
+                <i class="fas fa-check-circle card-icon"></i>
+                <div class="card-label">✅ Reached</div>
+                <div class="card-number" id="dashReached">0</div>
+                <div class="card-sub" id="dashReachedPercent">0% of target</div>
+            </div>
+            <div class="dash-card pending-card">
+                <i class="fas fa-clock card-icon"></i>
+                <div class="card-label">⏳ Pending</div>
+                <div class="card-number" id="dashPending">0</div>
+                <div class="card-sub">Need to reach</div>
+            </div>
+            <div class="dash-card notvote-card">
+                <i class="fas fa-times-circle card-icon"></i>
+                <div class="card-label">❌ Not Vote</div>
+                <div class="card-number" id="dashNotVote">0</div>
+                <div class="card-sub">Will not vote</div>
+            </div>
+        </div>
+
+        <!-- ===== TARGET PROGRESS ===== -->
+        <div class="target-progress">
+            <div class="target-header">
+                <h3><i class="fas fa-chart-line"></i> Target Progress</h3>
+                <div class="target-stats">
+                    <span id="targetProgressText">0%</span> · <span id="targetStatusText">Pending</span>
+                </div>
+            </div>
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar" id="targetProgressBar" style="width:0%;">
+                    <span id="targetProgressLabel">0%</span>
+                </div>
+            </div>
+            <div class="target-input-row">
+                <label>🎯 Set Target:</label>
+                <input type="number" id="targetInput" value="100" min="1" />
+                <button id="setTargetBtn">Set Target</button>
+                <span class="target-status">
+                    Need: <span class="status-need" id="targetNeed">0</span> more to reach target
+                    <span style="margin-left:8px;">|</span>
+                    Achieved: <span class="status-reached" id="targetAchieved">0</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- ===== CHARTS ===== -->
+        <div class="charts-section">
+            <div class="chart-box">
+                <h3><i class="fas fa-chart-bar"></i> Target vs Reached</h3>
+                <canvas id="targetChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3><i class="fas fa-pie-chart"></i> Status Distribution</h3>
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ===== FILTERS ===== -->
+        <div class="filters-bar">
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search name, ID, house..." />
+            </div>
+            <select id="statusFilter">
+                <option value="">All Status</option>
+                <option value="will-vote">✅ Will Vote</option>
+                <option value="not-decide">⏳ Not Decide</option>
+                <option value="not-vote">❌ Not Vote</option>
+                <option value="pending">⏺ Pending</option>
+            </select>
+            <select id="houseFilter">
+                <option value="">All Houses</option>
+            </select>
+            <button class="btn btn-primary" id="applyFilterBtn"><i class="fas fa-filter"></i> Apply</button>
+            <button class="btn btn-reset" id="resetBtn"><i class="fas fa-undo"></i> Reset</button>
+            <button class="btn btn-back" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+            <span class="stats-badge" id="filterCount">Showing <strong>0</strong> voters</span>
+        </div>
+
+        <!-- ===== SEARCH RESULT HEADER ===== -->
+        <div class="search-result-header" id="searchResultHeader">
+            <span class="result-text" id="resultText">🔍 Found <strong>0</strong> results for "<span id="searchTerm"></span>"</span>
+            <button class="clear-search" id="clearSearchBtn"><i class="fas fa-times-circle"></i> Clear</button>
+        </div>
+
+        <!-- ===== GALLERY GRID ===== -->
+        <div class="gallery-grid" id="voterGrid">
+            <div class="loading-state">Loading voters...</div>
+        </div>
+
+    </div>
+
+    <!-- ============================================
+    POPUP
+    ============================================ -->
+    <div class="popup-overlay" id="popupOverlay">
+        <div class="popup-box">
+            <button class="popup-close" id="popupClose">&times;</button>
+
+            <div class="popup-photo" id="popupPhoto">
+                <span class="placeholder">📷</span>
+            </div>
+            <div class="popup-name" id="popupName">Name</div>
+            <div class="popup-id" id="popupId">🆔 ID</div>
+
+            <div class="popup-details" id="popupDetails">
+                <span class="label">Age</span>
+                <span class="value" id="popupAge">N/A</span>
+                <span class="label">Sex</span>
+                <span class="value" id="popupSex">N/A</span>
+                <span class="label">House</span>
+                <span class="value" id="popupHouse">N/A</span>
+                <span class="label">Phone</span>
+                <span class="value" id="popupPhone">N/A</span>
+            </div>
+
+            <form id="popupForm">
+                <div class="form-group">
+                    <label><i class="fas fa-phone"></i> Update Phone Number</label>
+                    <div class="phone-input-wrapper">
+                        <input type="text" id="popupPhoneInput" placeholder="Enter new phone number..." />
+                        <span class="current-phone">Current: <strong id="currentPhoneDisplay">N/A</strong></span>
+                    </div>
+                </div>
+
+                <div class="popup-actions">
+                    <button type="submit" class="btn-save"><i class="fas fa-save"></i> Update Phone</button>
+                    <button type="button" class="btn-close" id="btnClosePopup"><i class="fas fa-times"></i> Close</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================
+    JAVASCRIPT
+    ============================================ -->
+    <script>
+        // ============================================
+        // CONFIG
+        // ============================================
+        const SUPABASE_URL = 'https://espezmdpkoixnfchomqb.supabase.co';
+        const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_xP8z74zcMuCkj6xlu1bJ3w_Kudqbcu1';
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+        // ============================================
+        // STATE
+        // ============================================
+        let allVoters = [];
+        let filteredVoters = [];
+        let selectedVoterId = null;
+        let isSearchActive = false;
+        let target = parseInt(localStorage.getItem('mdpTarget')) || 100;
+        let targetChartInstance = null;
+        let statusChartInstance = null;
+
+        // ============================================
+        // DOM ELEMENTS
+        // ============================================
+        const voterGrid = document.getElementById('voterGrid');
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        const houseFilter = document.getElementById('houseFilter');
+        const applyFilterBtn = document.getElementById('applyFilterBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const backBtn = document.getElementById('backBtn');
+        const filterCount = document.getElementById('filterCount');
+        const searchResultHeader = document.getElementById('searchResultHeader');
+        const resultText = document.getElementById('resultText');
+        const searchTerm = document.getElementById('searchTerm');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+        const miniTotal = document.getElementById('miniTotal');
+        const miniWillVote = document.getElementById('miniWillVote');
+        const miniNotDecide = document.getElementById('miniNotDecide');
+        const miniNotVote = document.getElementById('miniNotVote');
+
+        // Dashboard
+        const dashTarget = document.getElementById('dashTarget');
+        const dashReached = document.getElementById('dashReached');
+        const dashReachedPercent = document.getElementById('dashReachedPercent');
+        const dashPending = document.getElementById('dashPending');
+        const dashNotVote = document.getElementById('dashNotVote');
+
+        // Target Progress
+        const targetProgressBar = document.getElementById('targetProgressBar');
+        const targetProgressLabel = document.getElementById('targetProgressLabel');
+        const targetProgressText = document.getElementById('targetProgressText');
+        const targetStatusText = document.getElementById('targetStatusText');
+        const targetInput = document.getElementById('targetInput');
+        const setTargetBtn = document.getElementById('setTargetBtn');
+        const targetNeed = document.getElementById('targetNeed');
+        const targetAchieved = document.getElementById('targetAchieved');
+
+        // Popup
+        const popupOverlay = document.getElementById('popupOverlay');
+        const popupClose = document.getElementById('popupClose');
+        const btnClosePopup = document.getElementById('btnClosePopup');
+        const popupPhoto = document.getElementById('popupPhoto');
+        const popupName = document.getElementById('popupName');
+        const popupId = document.getElementById('popupId');
+        const popupAge = document.getElementById('popupAge');
+        const popupSex = document.getElementById('popupSex');
+        const popupHouse = document.getElementById('popupHouse');
+        const popupPhone = document.getElementById('popupPhone');
+        const popupPhoneInput = document.getElementById('popupPhoneInput');
+        const currentPhoneDisplay = document.getElementById('currentPhoneDisplay');
+        const popupForm = document.getElementById('popupForm');
+
+        // ============================================
+        // FETCH MDP VOTERS
+        // ============================================
+        async function fetchMDPVoters() {
+            voterGrid.innerHTML = '<div class="loading-state">Loading voters...</div>';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('full_import')
+                    .select('*')
+                    .ilike('party', 'MDP')
+                    .order('image_number', { ascending: true });
+
+                if (error) throw error;
+
+                allVoters = data || [];
+                filteredVoters = [...allVoters];
+
+                populateHouseFilter(allVoters);
+                updateAllStats(allVoters);
+                renderGrid(filteredVoters);
+
+            } catch (error) {
+                console.error('Error:', error);
+                voterGrid.innerHTML =
+                    `<div class="no-results"><i class="fas fa-exclamation-circle"></i>Failed to load voters.<br /><span style="font-size:14px;color:#aaa;">${error.message}</span></div>`;
+            }
+        }
+
+        // ============================================
+        // POPULATE HOUSE FILTER
+        // ============================================
+        function populateHouseFilter(voters) {
+            const houses = [...new Set(voters.map(v => v.house).filter(Boolean))].sort();
+            houseFilter.innerHTML = '<option value="">All Houses</option>';
+            houses.forEach(h => {
+                const option = document.createElement('option');
+                option.value = h;
+                option.textContent = h;
+                houseFilter.appendChild(option);
+            });
+        }
+
+        // ============================================
+        // UPDATE ALL STATS
+        // ============================================
+        function updateAllStats(voters) {
+            const total = voters.length;
+            const willVote = voters.filter(v => v.vote_status === 'will-vote').length;
+            const notDecide = voters.filter(v => v.vote_status === 'not-decide').length;
+            const notVote = voters.filter(v => v.vote_status === 'not-vote').length;
+            const pending = voters.filter(v => v.vote_status === 'pending' || !v.vote_status).length;
+
+            // Top bar
+            miniTotal.textContent = total;
+            miniWillVote.textContent = willVote;
+            miniNotDecide.textContent = notDecide;
+            miniNotVote.textContent = notVote;
+
+            // Dashboard cards
+            dashTarget.textContent = target;
+            dashReached.textContent = willVote;
+            const reachedPercent = target > 0 ? Math.round((willVote / target) * 100) : 0;
+            dashReachedPercent.textContent = reachedPercent + '% of target';
+            dashPending.textContent = pending;
+            dashNotVote.textContent = notVote;
+
+            // Target progress
+            updateTargetProgress(voters);
+            updateCharts(voters);
+        }
+
+        // ============================================
+        // UPDATE TARGET PROGRESS
+        // ============================================
+        function updateTargetProgress(voters) {
+            const willVote = voters.filter(v => v.vote_status === 'will-vote').length;
+            const total = voters.length;
+
+            const progress = target > 0 ? Math.min((willVote / target) * 100, 100) : 0;
+            targetProgressBar.style.width = progress + '%';
+            targetProgressLabel.textContent = Math.round(progress) + '%';
+            targetProgressText.textContent = Math.round(progress) + '%';
+
+            const need = Math.max(target - willVote, 0);
+            targetNeed.textContent = need;
+            targetAchieved.textContent = Math.min(willVote, target);
+
+            // Status text
+            if (progress >= 100) {
+                targetStatusText.textContent = '🎉 Target Achieved!';
+                targetProgressBar.className = 'progress-bar over-target';
+            } else if (progress >= 75) {
+                targetStatusText.textContent = '🚀 Almost There!';
+                targetProgressBar.className = 'progress-bar';
+            } else if (progress >= 50) {
+                targetStatusText.textContent = '📈 Good Progress';
+                targetProgressBar.className = 'progress-bar';
+            } else if (progress >= 25) {
+                targetStatusText.textContent = '🔄 Getting Started';
+                targetProgressBar.className = 'progress-bar';
+            } else {
+                targetStatusText.textContent = '⏳ Pending';
+                targetProgressBar.className = 'progress-bar';
+            }
+
+            targetInput.value = target;
+        }
+
+        // ============================================
+        // UPDATE CHARTS
+        // ============================================
+        function updateCharts(voters) {
+            const willVote = voters.filter(v => v.vote_status === 'will-vote').length;
+            const notDecide = voters.filter(v => v.vote_status === 'not-decide').length;
+            const notVote = voters.filter(v => v.vote_status === 'not-vote').length;
+            const pending = voters.filter(v => v.vote_status === 'pending' || !v.vote_status).length;
+
+            // Target Chart (Bar)
+            const ctxTarget = document.getElementById('targetChart').getContext('2d');
+            if (targetChartInstance) targetChartInstance.destroy();
+
+            targetChartInstance = new Chart(ctxTarget, {
+                type: 'bar',
+                data: {
+                    labels: ['Target', 'Reached', 'Pending', 'Not Vote'],
+                    datasets: [{
+                        label: 'Voter Count',
+                        data: [target, willVote, pending, notVote],
+                        backgroundColor: ['#f5a623', '#2ecc71', '#f39c12', '#e74c3c'],
+                        borderRadius: 6,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = voters.length;
+                                    const percentage = total > 0 ? ((context.parsed.y / total) * 100).toFixed(1) :
+                                        0;
+                                    return `${context.parsed.y} voters (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.05)' },
+                            ticks: { stepSize: Math.max(1, Math.ceil(voters.length / 10)) }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+
+            // Status Chart (Doughnut)
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            if (statusChartInstance) statusChartInstance.destroy();
+
+            statusChartInstance = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['✅ Will Vote', '⏳ Not Decide', '❌ Not Vote', '⏺ Pending'],
+                    datasets: [{
+                        data: [willVote, notDecide, notVote, pending],
+                        backgroundColor: ['#2ecc71', '#f39c12', '#e74c3c', '#95a5a6'],
+                        borderWidth: 2,
+                        borderColor: 'white',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 10,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = voters.length;
+                                    const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                    return `${context.parsed} voters (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // ============================================
+        // RENDER GRID
+        // ============================================
+        function renderGrid(voters) {
+            if (voters.length === 0) {
+                voterGrid.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-search"></i>
+                        No voters found
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            voters.forEach(v => {
+                const photoUrl = v.photo_url || '';
+                const status = v.vote_status || 'pending';
+                const statusLabels = {
+                    'will-vote': 'Will Vote',
+                    'not-decide': 'Not Decide',
+                    'not-vote': 'Not Vote',
+                    'pending': 'Pending'
+                };
+                const statusClass = status;
+                const address = [v.house, v.lives_in].filter(Boolean).join(', ') || 'N/A';
+                const remarks = v.remarks || '';
+
+                html += `
+                    <div class="voter-card" onclick="openPopup(${v.id})">
+                        <div class="card-photo">
+                            ${photoUrl ? 
+                                `<img src="${photoUrl}" alt="${v.name}" loading="lazy" 
+                                      onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'no-photo\\'>📷</span>';" />` :
+                                '<span class="no-photo">📷</span>'
+                            }
+                            <span class="status-badge ${statusClass}">${statusLabels[status] || 'Pending'}</span>
+                        </div>
+                        <div class="card-info">
+                            <div class="name">${v.name || 'Unknown'}</div>
+                            <div class="national-id">🆔 ${v.national_id || 'N/A'}</div>
+                            <div class="details">
+                                <span><i class="fas fa-home"></i> ${address}</span>
+                                <span><i class="fas fa-phone"></i> ${v.phone || 'N/A'}</span>
+                                <span><i class="fas fa-calendar-alt"></i> ${v.age || 'N/A'}</span>
+                            </div>
+                            ${remarks ? `<div class="remarks-preview"><i class="fas fa-comment"></i> ${remarks}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            voterGrid.innerHTML = html;
+            updateFilterCount(voters.length);
+        }
+
+        // ============================================
+        // UPDATE FILTER COUNT
+        // ============================================
+        function updateFilterCount(count) {
+            filterCount.innerHTML = `Showing <strong>${count}</strong> voters`;
+        }
+
+        // ============================================
+        // OPEN POPUP
+        // ============================================
+        function openPopup(id) {
+            const voter = allVoters.find(v => v.id === id);
+            if (!voter) return;
+
+            selectedVoterId = id;
+
+            const photoUrl = voter.photo_url || '';
+            if (photoUrl) {
+                popupPhoto.innerHTML = `<img src="${photoUrl}" alt="${voter.name}" 
+                                          onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=\\'placeholder\\'>📷</span>';" />`;
+            } else {
+                popupPhoto.innerHTML = '<span class="placeholder">📷</span>';
+            }
+
+            popupName.textContent = voter.name || 'Unknown';
+            popupId.textContent = '🆔 ' + (voter.national_id || 'N/A');
+            popupAge.textContent = voter.age || 'N/A';
+            popupSex.textContent = voter.sex || 'N/A';
+            popupHouse.textContent = voter.house || 'N/A';
+            popupPhone.textContent = voter.phone || 'N/A';
+
+            currentPhoneDisplay.textContent = voter.phone || 'N/A';
+            popupPhoneInput.value = '';
+            popupPhoneInput.placeholder = voter.phone ? `Update from ${voter.phone}` : 'Enter phone number';
+
+            popupOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => popupPhoneInput.focus(), 300);
+        }
+
+        // ============================================
+        // CLOSE POPUP
+        // ============================================
+        function closePopup() {
+            popupOverlay.classList.remove('active');
+            document.body.style.overflow = 'auto';
+            selectedVoterId = null;
+        }
+
+        // ============================================
+        // SAVE POPUP - PHONE ONLY
+        // ============================================
+        async function savePopup(e) {
+            e.preventDefault();
+
+            if (selectedVoterId === null) return;
+
+            const phone = popupPhoneInput.value.trim();
+
+            if (!phone) {
+                alert('⚠️ Please enter a phone number.');
+                popupPhoneInput.focus();
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('full_import')
+                    .update({ phone: phone })
+                    .eq('id', selectedVoterId);
+
+                if (error) throw error;
+
+                const voter = allVoters.find(v => v.id === selectedVoterId);
+                if (voter) {
+                    voter.phone = phone;
+                }
+
+                renderGrid(filteredVoters);
+                updateAllStats(filteredVoters);
+
+                closePopup();
+
+                // Show success
+                const msg = document.createElement('div');
+                msg.style.cssText =
+                    'position:fixed;bottom:20px;right:20px;background:#2ecc71;color:white;padding:10px 20px;border-radius:10px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(46,204,113,0.3);animation:fadeUp 0.3s ease;';
+                msg.innerHTML = '✅ Phone updated!';
+                document.body.appendChild(msg);
+                setTimeout(() => msg.remove(), 2500);
+
+            } catch (error) {
+                console.error('Error saving:', error);
+                alert('❌ Failed to save. Please try again.');
+            }
+        }
+
+        // ============================================
+        // FILTER VOTERS
+        // ============================================
+        function filterVoters() {
+            const search = searchInput.value.trim();
+            const status = statusFilter.value;
+            const house = houseFilter.value;
+
+            filteredVoters = allVoters.filter(v => {
+                let matchSearch = true;
+                if (search) {
+                    const searchLower = search.toLowerCase();
+                    matchSearch =
+                        (v.name && v.name.toLowerCase().includes(searchLower)) ||
+                        (v.national_id && v.national_id.toLowerCase().includes(searchLower)) ||
+                        (v.house && v.house.toLowerCase().includes(searchLower)) ||
+                        (v.remarks && v.remarks.toLowerCase().includes(searchLower));
+                }
+
+                let matchStatus = true;
+                if (status) {
+                    matchStatus = (v.vote_status || 'pending') === status;
+                }
+
+                let matchHouse = true;
+                if (house) {
+                    matchHouse = (v.house || '') === house;
+                }
+
+                return matchSearch && matchStatus && matchHouse;
+            });
+
+            renderGrid(filteredVoters);
+            updateAllStats(filteredVoters);
+            showSearchHeader(search, filteredVoters.length);
+        }
+
+        // ============================================
+        // BACK TO ALL
+        // ============================================
+        function backToAll() {
+            searchInput.value = '';
+            statusFilter.value = '';
+            houseFilter.value = '';
+            filteredVoters = [...allVoters];
+            renderGrid(filteredVoters);
+            updateAllStats(filteredVoters);
+            showSearchHeader('', filteredVoters.length);
+            searchInput.focus();
+        }
+
+        // ============================================
+        // SHOW/HIDE SEARCH HEADER
+        // ============================================
+        function showSearchHeader(term, count) {
+            if (term && term.trim() !== '') {
+                searchTerm.textContent = term;
+                resultText.innerHTML = `🔍 Found <strong>${count}</strong> results for "<strong>${term}</strong>"`;
+                searchResultHeader.classList.add('show');
+                isSearchActive = true;
+                backBtn.classList.add('show');
+            } else {
+                searchResultHeader.classList.remove('show');
+                isSearchActive = false;
+                backBtn.classList.remove('show');
+            }
+        }
+
+        // ============================================
+        // SET TARGET
+        // ============================================
+        function setTarget() {
+            const val = parseInt(targetInput.value);
+            if (val > 0 && val <= allVoters.length) {
+                target = val;
+                localStorage.setItem('mdpTarget', target);
+                updateAllStats(filteredVoters);
+            } else {
+                alert(`Please enter a value between 1 and ${allVoters.length}`);
+            }
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        applyFilterBtn.addEventListener('click', filterVoters);
+        resetBtn.addEventListener('click', backToAll);
+        backBtn.addEventListener('click', backToAll);
+        clearSearchBtn.addEventListener('click', backToAll);
+
+        searchInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') filterVoters();
+            if (e.target.value.trim() === '' && isSearchActive) {
+                backToAll();
+            }
+        });
+
+        statusFilter.addEventListener('change', filterVoters);
+        houseFilter.addEventListener('change', filterVoters);
+
+        setTargetBtn.addEventListener('click', setTarget);
+        targetInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') setTarget();
+        });
+
+        popupClose.addEventListener('click', closePopup);
+        btnClosePopup.addEventListener('click', closePopup);
+        popupOverlay.addEventListener('click', (e) => {
+            if (e.target === popupOverlay) closePopup();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && popupOverlay.classList.contains('active')) {
+                closePopup();
+            }
+        });
+
+        popupForm.addEventListener('submit', savePopup);
+
+        // ============================================
+        // EXPOSE TO GLOBAL
+        // ============================================
+        window.openPopup = openPopup;
+        window.closePopup = closePopup;
+
+        // ============================================
+        // INIT
+        // ============================================
+        targetInput.value = target;
+        fetchMDPVoters();
+    </script>
+
+</body>
+</html>

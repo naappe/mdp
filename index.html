@@ -5,171 +5,265 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Voter Management System</title>
 
-    <link rel="stylesheet" href="style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-
-    <script type="importmap">
-        {
-            "imports": {
-                "./config.js": "./config.js"
-            }
-        }
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
     <!-- ============================================
-    NAVIGATION BAR
+    LOGIN SCREEN
     ============================================ -->
-    <nav class="navbar">
-        <div class="logo">
-            <i class="fas fa-vote-yea"></i>
-            Voter<span>Manager</span>
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <div class="login-logo">
+                <i class="fas fa-vote-yea"></i>
+                <h1>Voter<span>Manager</span></h1>
+            </div>
+            <p class="login-subtitle">Admin Access Only</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Username</label>
+                    <input type="text" id="loginUsername" placeholder="Enter username" value="admin" />
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" id="loginPassword" placeholder="Enter password" value="admin123" />
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                    <input type="checkbox" id="rememberMe" checked style="width:16px; height:16px; cursor:pointer;" />
+                    <label for="rememberMe" style="font-size:13px; color:#555; cursor:pointer; margin:0;">
+                        <i class="fas fa-check-circle"></i> Remember Me
+                    </label>
+                </div>
+                <div id="loginError" class="login-error">Invalid username or password</div>
+                <button type="submit" class="btn-login"><i class="fas fa-sign-in-alt"></i> Login</button>
+            </form>
         </div>
-        <ul class="nav-links" id="navLinks">
-            <li><a href="#" class="active"><i class="fas fa-home"></i> Dashboard</a></li>
-            <li><a href="#"><i class="fas fa-users"></i> Voters <span class="badge" id="navCount">0</span></a></li>
-            <li><a href="#"><i class="fas fa-chart-pie"></i> Analytics</a></li>
-        </ul>
-        <div class="hamburger" id="hamburger">
-            <i class="fas fa-bars"></i>
-        </div>
-    </nav>
+    </div>
 
     <!-- ============================================
-    MAIN CONTAINER
+    MAIN APP
     ============================================ -->
-    <div class="container">
+    <div id="mainApp" style="display:none;">
 
-        <!-- ===== STATS ROW ===== -->
-        <div class="stats-row">
-            <div class="stat-item">
-                <span class="stat-number" id="totalVoters">0</span>
-                <span class="stat-label">Total Voters</span>
+        <nav class="navbar">
+            <div class="logo">
+                <i class="fas fa-vote-yea"></i>
+                Voter<span>Manager</span>
             </div>
-            <div class="stat-item">
-                <span class="stat-number" id="maleCount">0</span>
-                <span class="stat-label">Male</span>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#" class="active"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="#"><i class="fas fa-users"></i> Voters <span class="badge" id="navCount">0</span></a></li>
+                <li><a href="#"><i class="fas fa-chart-pie"></i> Analytics</a></li>
+                <li><a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+            <div class="hamburger" id="hamburger">
+                <i class="fas fa-bars"></i>
             </div>
-            <div class="stat-item">
-                <span class="stat-number" id="femaleCount">0</span>
-                <span class="stat-label">Female</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number" id="houseCount">0</span>
-                <span class="stat-label">Houses</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number" id="partyCount">0</span>
-                <span class="stat-label">Parties</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number" id="avgAge">0</span>
-                <span class="stat-label">Avg Age</span>
-            </div>
-        </div>
+        </nav>
 
-        <!-- ===== TOP HOUSES ===== -->
-        <div class="top-houses-section">
-            <div class="top-houses-header" id="topHousesToggle">
-                <h2><i class="fas fa-trophy"></i> Top Houses <span id="topHousesCount"></span></h2>
-                <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
-            </div>
-            <div class="top-houses-grid" id="topHouses">
-                <div class="loading-state">Loading houses...</div>
-            </div>
-        </div>
+        <div class="container">
 
-        <!-- ===== FILTERS ===== -->
-        <div class="filters-bar">
-            <div class="filter-row">
-                <div class="search-wrapper">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" id="searchInput" placeholder="Search name, ID, or house..." />
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-number" id="totalVoters">0</span>
+                    <span class="stat-label">Total Voters</span>
                 </div>
-                <select id="sexFilter">
-                    <option value="">All Genders</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                </select>
-                <select id="partyFilter">
-                    <option value="">All Parties</option>
-                </select>
-                <select id="houseFilter">
-                    <option value="">All Houses</option>
-                </select>
-                <div class="age-range">
-                    <input type="number" id="ageMin" placeholder="Min" min="0" max="150" />
-                    <span>—</span>
-                    <input type="number" id="ageMax" placeholder="Max" min="0" max="150" />
+                <div class="stat-item">
+                    <span class="stat-number" id="maleCount">0</span>
+                    <span class="stat-label">Male</span>
                 </div>
-                <button class="btn-reset" id="resetBtn"><i class="fas fa-undo"></i></button>
+                <div class="stat-item">
+                    <span class="stat-number" id="femaleCount">0</span>
+                    <span class="stat-label">Female</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="houseCount">0</span>
+                    <span class="stat-label">Houses</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="partyCount">0</span>
+                    <span class="stat-label">Parties</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="avgAge">0</span>
+                    <span class="stat-label">Avg Age</span>
+                </div>
             </div>
-            <div class="filter-chips" id="filterChips"></div>
+
+            <!-- Top Houses -->
+            <div class="top-houses-section">
+                <div class="top-houses-header" id="topHousesToggle">
+                    <h2><i class="fas fa-trophy"></i> Top Houses <span id="topHousesCount"></span></h2>
+                    <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
+                </div>
+                <div class="top-houses-grid" id="topHouses">
+                    <div class="loading-state">Loading houses...</div>
+                </div>
+            </div>
+
+            <!-- Age Analytics -->
+            <div class="age-analytics-section">
+                <h2><i class="fas fa-chart-bar"></i> Age Analytics</h2>
+                <div id="ageRangeStats">
+                    <div class="loading-state">Loading age data...</div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="ageChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-bar">
+                <div class="filter-row">
+                    <div class="search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="searchInput" placeholder="Search name, ID, or house..." />
+                    </div>
+                    <select id="sexFilter">
+                        <option value="">All Genders</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                    <select id="partyFilter">
+                        <option value="">All Parties</option>
+                    </select>
+                    <select id="houseFilter">
+                        <option value="">All Houses</option>
+                    </select>
+                    <select id="ageRangeFilter">
+                        <option value="">All Ages</option>
+                        <option value="18-24">18 - 24</option>
+                        <option value="25-34">25 - 34</option>
+                        <option value="35-44">35 - 44</option>
+                        <option value="45-54">45 - 54</option>
+                        <option value="55-64">55 - 64</option>
+                        <option value="65+">65+</option>
+                    </select>
+                    <button class="btn-reset" id="resetBtn"><i class="fas fa-undo"></i></button>
+                </div>
+                <div class="filter-chips" id="filterChips"></div>
+            </div>
+
+            <!-- View Toggle -->
+            <div class="view-toggle-bar">
+                <button class="view-toggle-btn active" id="listViewBtn">
+                    <i class="fas fa-list"></i> List View
+                </button>
+                <button class="view-toggle-btn" id="galleryViewBtn">
+                    <i class="fas fa-images"></i> Gallery View
+                </button>
+            </div>
+
+            <!-- List View -->
+            <div class="voter-list-section" id="listSection">
+                <div class="list-header">
+                    <h2><i class="fas fa-list"></i> Voters <span id="voterCountDisplay"></span></h2>
+                </div>
+                <div id="voterList" class="voter-list">
+                    <div class="loading-state">Loading voters...</div>
+                </div>
+                <div class="pagination" id="pagination">
+                    <button id="prevPage"><i class="fas fa-chevron-left"></i></button>
+                    <span id="pageInfo">Page 1 of 1</span>
+                    <button id="nextPage"><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+
+            <!-- Gallery View -->
+            <div class="gallery-section" id="gallerySection" style="display:none;">
+                <div class="list-header">
+                    <h2><i class="fas fa-images"></i> Photo Gallery <span id="galleryCount"></span></h2>
+                </div>
+                <div class="photo-grid" id="photoGrid">
+                    <div class="loading-state">Loading gallery...</div>
+                </div>
+                <div class="pagination" id="galleryPagination">
+                    <button id="galleryPrev"><i class="fas fa-chevron-left"></i></button>
+                    <span id="galleryPageInfo">Page 1 of 1</span>
+                    <button id="galleryNext"><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+
         </div>
 
-        <!-- ============================================
-        VIEW TOGGLE - LIST / GALLERY
-        ============================================ -->
-        <div class="view-toggle-bar">
-            <button class="view-toggle-btn active" id="listViewBtn">
-                <i class="fas fa-list"></i> List View
-            </button>
-            <button class="view-toggle-btn" id="galleryViewBtn">
-                <i class="fas fa-images"></i> Gallery View
-            </button>
-        </div>
-
-        <!-- ============================================
-        LIST VIEW
-        ============================================ -->
-        <div class="voter-list-section" id="listSection">
-            <div class="list-header">
-                <h2><i class="fas fa-list"></i> Voters <span id="voterCountDisplay"></span></h2>
-            </div>
-            <div id="voterList" class="voter-list">
-                <div class="loading-state">Loading voters...</div>
-            </div>
-            <div class="pagination" id="pagination">
-                <button id="prevPage"><i class="fas fa-chevron-left"></i></button>
-                <span id="pageInfo">Page 1 of 1</span>
-                <button id="nextPage"><i class="fas fa-chevron-right"></i></button>
+        <!-- Voter Popup -->
+        <div class="voter-popup-overlay" id="voterPopup">
+            <div class="voter-popup">
+                <button class="voter-popup-close" id="voterPopupClose">&times;</button>
+                <div class="voter-popup-content" id="voterPopupContent">
+                    <div class="popup-loading">Loading...</div>
+                </div>
             </div>
         </div>
 
-        <!-- ============================================
-        GALLERY VIEW - PHOTO GRID
-        ============================================ -->
-        <div class="gallery-section" id="gallerySection" style="display:none;">
-            <div class="list-header">
-                <h2><i class="fas fa-images"></i> Photo Gallery <span id="galleryCount"></span></h2>
-            </div>
-            <div class="photo-grid" id="photoGrid">
-                <div class="loading-state">Loading gallery...</div>
-            </div>
-            <div class="pagination" id="galleryPagination">
-                <button id="galleryPrev"><i class="fas fa-chevron-left"></i></button>
-                <span id="galleryPageInfo">Page 1 of 1</span>
-                <button id="galleryNext"><i class="fas fa-chevron-right"></i></button>
+        <!-- Edit Popup -->
+        <div class="edit-popup-overlay" id="editPopup">
+            <div class="edit-popup">
+                <button class="edit-popup-close" id="editPopupClose">&times;</button>
+                <h2><i class="fas fa-edit"></i> Edit Voter</h2>
+                <form id="editForm">
+                    <input type="hidden" id="editId" />
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="editName" required />
+                        </div>
+                        <div class="form-group">
+                            <label>National ID</label>
+                            <input type="text" id="editNationalId" required />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>House</label>
+                            <input type="text" id="editHouse" />
+                        </div>
+                        <div class="form-group">
+                            <label>Lives In</label>
+                            <input type="text" id="editLivesIn" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="text" id="editPhone" />
+                        </div>
+                        <div class="form-group">
+                            <label>Sex</label>
+                            <select id="editSex">
+                                <option value="">Select</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Age</label>
+                            <input type="number" id="editAge" min="0" max="150" />
+                        </div>
+                        <div class="form-group">
+                            <label>Party</label>
+                            <input type="text" id="editParty" />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-save"><i class="fas fa-save"></i> Save Changes</button>
+                </form>
             </div>
         </div>
 
     </div>
 
-    <!-- ============================================
-    VOTER POPUP
-    ============================================ -->
-    <div class="voter-popup-overlay" id="voterPopup">
-        <div class="voter-popup">
-            <button class="voter-popup-close" id="voterPopupClose">&times;</button>
-            <div class="voter-popup-content" id="voterPopupContent">
-                <div class="popup-loading">Loading...</div>
-            </div>
-        </div>
-    </div>
-
-    <script type="module" src="app.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
 
 </body>
 </html>

@@ -1,11 +1,8 @@
 // ============================================
-// IMPORT CONFIG
+// CONFIG VALUES (from config.js via window)
 // ============================================
-import { SUPABASE_CONFIG } from './config.js';
+console.log('✅ app.js loaded');
 
-// ============================================
-// HELPER: Normalize Sex
-// ============================================
 function normalizeSex(value) {
     if (!value) return '';
     const upper = value.toUpperCase();
@@ -24,7 +21,10 @@ if (typeof supabase === 'undefined') {
     throw new Error('Supabase library failed to load');
 }
 
-const supabaseClient = supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey);
+var SUPABASE_URL = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : 'https://espezmdpkoixnfchomqb.supabase.co';
+var SUPABASE_PUBLISHABLE_KEY = window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.publishableKey : 'sb_publishable_xP8z74zcMuCkj6xlu1bJ3w_Kudqbcu1';
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // ============================================
 // STATE
@@ -37,17 +37,61 @@ let galleryPage = 1;
 const galleryPageSize = 30;
 let topHousesCollapsed = false;
 let isLoading = false;
+let ageChartInstance = null;
+let isLoggedIn = false;
+
+// ============================================
+// SESSION MANAGEMENT
+// ============================================
+function saveSession(username) {
+    localStorage.setItem('voterSession', JSON.stringify({
+        username: username,
+        timestamp: Date.now()
+    }));
+}
+
+function clearSession() {
+    localStorage.removeItem('voterSession');
+}
+
+function checkSession() {
+    const sessionData = localStorage.getItem('voterSession');
+    if (sessionData) {
+        try {
+            const session = JSON.parse(sessionData);
+            const sessionAge = Date.now() - session.timestamp;
+            const maxAge = 24 * 60 * 60 * 1000;
+            if (sessionAge < maxAge) {
+                return session.username;
+            } else {
+                clearSession();
+                return null;
+            }
+        } catch (e) {
+            clearSession();
+            return null;
+        }
+    }
+    return null;
+}
 
 // ============================================
 // DOM ELEMENTS
 // ============================================
+const loginOverlay = document.getElementById('loginOverlay');
+const loginForm = document.getElementById('loginForm');
+const loginUsername = document.getElementById('loginUsername');
+const loginPassword = document.getElementById('loginPassword');
+const loginError = document.getElementById('loginError');
+const mainApp = document.getElementById('mainApp');
+const rememberMe = document.getElementById('rememberMe');
+
 const voterList = document.getElementById('voterList');
 const searchInput = document.getElementById('searchInput');
 const sexFilter = document.getElementById('sexFilter');
 const partyFilter = document.getElementById('partyFilter');
 const houseFilter = document.getElementById('houseFilter');
-const ageMin = document.getElementById('ageMin');
-const ageMax = document.getElementById('ageMax');
+const ageRangeFilter = document.getElementById('ageRangeFilter');
 const resetBtn = document.getElementById('resetBtn');
 const filterChips = document.getElementById('filterChips');
 
@@ -72,7 +116,6 @@ const voterPopup = document.getElementById('voterPopup');
 const voterPopupContent = document.getElementById('voterPopupContent');
 const voterPopupClose = document.getElementById('voterPopupClose');
 
-// Gallery Elements
 const gallerySection = document.getElementById('gallerySection');
 const photoGrid = document.getElementById('photoGrid');
 const galleryCount = document.getElementById('galleryCount');
@@ -81,6 +124,72 @@ const galleryNext = document.getElementById('galleryNext');
 const galleryPageInfo = document.getElementById('galleryPageInfo');
 const listViewBtn = document.getElementById('listViewBtn');
 const galleryViewBtn = document.getElementById('galleryViewBtn');
+
+const editPopup = document.getElementById('editPopup');
+const editPopupClose = document.getElementById('editPopupClose');
+const editForm = document.getElementById('editForm');
+const editId = document.getElementById('editId');
+const editName = document.getElementById('editName');
+const editNationalId = document.getElementById('editNationalId');
+const editHouse = document.getElementById('editHouse');
+const editLivesIn = document.getElementById('editLivesIn');
+const editPhone = document.getElementById('editPhone');
+const editSex = document.getElementById('editSex');
+const editAge = document.getElementById('editAge');
+const editParty = document.getElementById('editParty');
+const logoutBtn = document.getElementById('logoutBtn');
+
+// ============================================
+// LOGIN / LOGOUT / SESSION
+// ============================================
+function handleLogin(e) {
+    e.preventDefault();
+    const username = loginUsername.value.trim();
+    const password = loginPassword.value.trim();
+
+    if (username === window.ADMIN_USERNAME && password === window.ADMIN_PASSWORD) {
+        isLoggedIn = true;
+        if (rememberMe && rememberMe.checked) {
+            saveSession(username);
+        }
+        loginOverlay.style.display = 'none';
+        mainApp.style.display = 'block';
+        loginError.style.display = 'none';
+        fetchVoters();
+    } else {
+        loginError.style.display = 'block';
+        loginError.textContent = '❌ Invalid username or password';
+        loginPassword.value = '';
+        loginPassword.focus();
+    }
+}
+
+function handleLogout() {
+    isLoggedIn = false;
+    clearSession();
+    mainApp.style.display = 'none';
+    loginOverlay.style.display = 'flex';
+    loginUsername.value = 'admin';
+    loginPassword.value = 'admin123';
+    loginError.style.display = 'none';
+    if (rememberMe) rememberMe.checked = false;
+}
+
+function checkLogin() {
+    const savedUsername = checkSession();
+    if (savedUsername) {
+        isLoggedIn = true;
+        loginOverlay.style.display = 'none';
+        mainApp.style.display = 'block';
+        loginUsername.value = savedUsername;
+        fetchVoters();
+        return true;
+    }
+    loginOverlay.style.display = 'flex';
+    mainApp.style.display = 'none';
+    isLoggedIn = false;
+    return false;
+}
 
 // ============================================
 // HAMBURGER MENU
@@ -112,89 +221,196 @@ voterPopupClose.addEventListener('click', closePopup);
 voterPopup.addEventListener('click', function(e) {
     if (e.target === this) closePopup();
 });
-
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closePopup();
 });
 
 // ============================================
-// FETCH ALL VOTERS WITH PAGINATION
+// EDIT POPUP CONTROLS
+// ============================================
+editPopupClose.addEventListener('click', function() {
+    editPopup.style.display = 'none';
+});
+editPopup.addEventListener('click', function(e) {
+    if (e.target === this) {
+        editPopup.style.display = 'none';
+    }
+});
+
+// ============================================
+// LOGIN/LOGOUT EVENTS
+// ============================================
+loginForm.addEventListener('submit', handleLogin);
+logoutBtn.addEventListener('click', handleLogout);
+
+// ============================================
+// FETCH ALL VOTERS
 // ============================================
 async function fetchVoters() {
     if (isLoading) return;
     isLoading = true;
-
     voterList.innerHTML = '<div class="loading-state">Loading voters...</div>';
 
     try {
-        // First, get total count
         const { count, error: countError } = await supabaseClient
             .from('full_import')
             .select('*', { count: 'exact', head: true });
-
         if (countError) throw countError;
-        console.log('📊 Total records in table:', count);
 
-        // Fetch all data using pagination
         let allData = [];
         let page = 0;
         const pageSize = 1000;
         let hasMore = true;
-        let totalFetched = 0;
 
         while (hasMore) {
             const from = page * pageSize;
             const to = from + pageSize - 1;
-
-            console.log(`📥 Fetching batch ${page + 1}: rows ${from} to ${to}`);
-
             const { data, error } = await supabaseClient
                 .from('full_import')
                 .select('*')
                 .range(from, to)
                 .order('image_number', { ascending: true });
-
             if (error) throw error;
-
             if (data && data.length > 0) {
                 allData = allData.concat(data);
-                totalFetched += data.length;
                 page++;
             }
-
             if (!data || data.length < pageSize) {
                 hasMore = false;
             }
         }
 
-        console.log('✅ Loaded all voters:', allData.length);
-
         allVoters = allData || [];
         filteredVoters = [...allVoters];
-
-        // Check if we got all records
-        if (count && allVoters.length < count) {
-            console.warn(`⚠️ Only loaded ${allVoters.length} out of ${count} records!`);
-        }
 
         populateFilters(allVoters);
         renderTopHouses(allVoters);
         updateStats(allVoters);
+        renderAgeAnalytics(allVoters);
         renderList(filteredVoters);
 
-        // Update gallery if visible
         if (gallerySection.style.display !== 'none') {
             galleryPage = 1;
             renderGallery(filteredVoters);
         }
 
     } catch (error) {
-        console.error('❌ Error fetching voters:', error);
+        console.error('Error:', error);
         voterList.innerHTML =
             `<div class="error-box">❌ Failed to load voters.<br /><small>${error.message}</small></div>`;
     } finally {
         isLoading = false;
     }
+}
+
+// ============================================
+// AGE ANALYTICS
+// ============================================
+function renderAgeAnalytics(voters) {
+    const ageGroups = {
+        '18-24': 0,
+        '25-34': 0,
+        '35-44': 0,
+        '45-54': 0,
+        '55-64': 0,
+        '65+': 0
+    };
+
+    voters.forEach(v => {
+        const age = parseInt(v.age);
+        if (isNaN(age) || age < 18) return;
+        if (age >= 18 && age <= 24) ageGroups['18-24']++;
+        else if (age >= 25 && age <= 34) ageGroups['25-34']++;
+        else if (age >= 35 && age <= 44) ageGroups['35-44']++;
+        else if (age >= 45 && age <= 54) ageGroups['45-54']++;
+        else if (age >= 55 && age <= 64) ageGroups['55-64']++;
+        else if (age >= 65) ageGroups['65+']++;
+    });
+
+    const total = voters.length;
+    const withAge = Object.values(ageGroups).reduce((a, b) => a + b, 0);
+    const withoutAge = total - withAge;
+
+    const ctx = document.getElementById('ageChart').getContext('2d');
+    if (ageChartInstance) ageChartInstance.destroy();
+
+    const labels = Object.keys(ageGroups);
+    const data = Object.values(ageGroups);
+    const colors = ['#4a90d9', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#1abc9c'];
+
+    ageChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Voters by Age',
+                data: data,
+                backgroundColor: colors.map(c => c + '80'),
+                borderColor: colors,
+                borderWidth: 2,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((context.parsed.y / total) * 100).toFixed(1) : 0;
+                            return `${context.parsed.y} voters (${percentage}%)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    const ageRangeStats = document.getElementById('ageRangeStats');
+    let statsHtml = `
+        <div class="age-stats-grid">
+            <div class="age-stat-item">
+                <span class="age-stat-number">${total}</span>
+                <span class="age-stat-label">Total Voters</span>
+            </div>
+            <div class="age-stat-item">
+                <span class="age-stat-number">${withAge}</span>
+                <span class="age-stat-label">With Age</span>
+            </div>
+            <div class="age-stat-item">
+                <span class="age-stat-number">${withoutAge}</span>
+                <span class="age-stat-label">No Age</span>
+            </div>
+            <div class="age-stat-item">
+                <span class="age-stat-number">${Object.keys(ageGroups).filter(k => ageGroups[k] > 0).length}</span>
+                <span class="age-stat-label">Age Groups</span>
+            </div>
+        </div>
+    `;
+
+    let breakdownHtml = '<div class="age-breakdown">';
+    Object.entries(ageGroups).forEach(([group, count]) => {
+        const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+        breakdownHtml += `
+            <div class="age-breakdown-item">
+                <span class="age-group-label">${group}</span>
+                <div class="age-bar-wrapper">
+                    <div class="age-bar" style="width: ${percentage}%; background: ${colors[Object.keys(ageGroups).indexOf(group)]};"></div>
+                </div>
+                <span class="age-group-count">${count} (${percentage}%)</span>
+            </div>
+        `;
+    });
+    breakdownHtml += '</div>';
+
+    ageRangeStats.innerHTML = statsHtml + breakdownHtml;
 }
 
 // ============================================
@@ -266,9 +482,7 @@ function applyFilterChip(type, value) {
     if (type === 'sex') sexFilter.value = value;
     else if (type === 'party') partyFilter.value = value;
     else if (type === 'age') {
-        const [min, max] = value.split('-');
-        ageMin.value = min;
-        ageMax.value = max;
+        ageRangeFilter.value = value;
     }
     filterVoters();
     document.querySelectorAll('.filter-chip').forEach(el => {
@@ -368,12 +582,87 @@ function showVoterPopup(voter) {
             <span class="label">Sex</span><span class="value">${sexDisplay}</span>
             <span class="label">Address</span><span class="value">${address}</span>
             <span class="label">Mobile</span><span class="value">${voter.phone || 'N/A'}</span>
+            <span class="label">Party</span><span class="value">${voter.party || 'N/A'}</span>
         </div>
         ${voter.party ? `<div class="popup-party ${partyClass}">${voter.party}</div>` : ''}
+        <button class="popup-edit-btn" onclick="openEditPopup(${voter.id})">
+            <i class="fas fa-edit"></i> Edit Voter
+        </button>
     `;
 
     voterPopup.style.display = 'flex';
 }
+
+// ============================================
+// OPEN EDIT POPUP
+// ============================================
+window.openEditPopup = function(id) {
+    const voter = allVoters.find(v => v.id === id);
+    if (!voter) return;
+
+    editId.value = voter.id;
+    editName.value = voter.name || '';
+    editNationalId.value = voter.national_id || '';
+    editHouse.value = voter.house || '';
+    editLivesIn.value = voter.lives_in || '';
+    editPhone.value = voter.phone || '';
+    editSex.value = voter.sex || '';
+    editAge.value = voter.age || '';
+    editParty.value = voter.party || '';
+
+    editPopup.style.display = 'flex';
+    voterPopup.style.display = 'none';
+};
+
+// ============================================
+// SAVE EDIT
+// ============================================
+editForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const id = parseInt(editId.value);
+    const updatedData = {
+        name: editName.value,
+        national_id: editNationalId.value,
+        house: editHouse.value,
+        lives_in: editLivesIn.value,
+        phone: editPhone.value,
+        sex: editSex.value,
+        age: parseInt(editAge.value) || null,
+        party: editParty.value
+    };
+
+    try {
+        const { error } = await supabaseClient
+            .from('full_import')
+            .update(updatedData)
+            .eq('id', id);
+
+        if (error) throw error;
+
+        const index = allVoters.findIndex(v => v.id === id);
+        if (index !== -1) {
+            allVoters[index] = { ...allVoters[index], ...updatedData };
+        }
+
+        filteredVoters = [...allVoters];
+        renderList(filteredVoters);
+        renderAgeAnalytics(filteredVoters);
+        updateStats(filteredVoters);
+        renderTopHouses(filteredVoters);
+
+        if (gallerySection.style.display !== 'none') {
+            renderGallery(filteredVoters);
+        }
+
+        editPopup.style.display = 'none';
+        alert('✅ Voter updated successfully!');
+
+    } catch (error) {
+        console.error('Error updating voter:', error);
+        alert('❌ Failed to update voter: ' + error.message);
+    }
+});
 
 // ============================================
 // RENDER LIST
@@ -416,6 +705,9 @@ function renderList(voters) {
                     ${sexIcon ? `<span class="detail">${sexIcon}</span>` : ''}
                 </div>
                 ${v.party ? `<span class="party-badge ${partyClass}">${v.party}</span>` : ''}
+                <button class="edit-btn-small" onclick="event.stopPropagation(); openEditPopup(${v.id});">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
         `;
     });
@@ -523,15 +815,14 @@ function showGalleryView() {
 }
 
 // ============================================
-// FILTER VOTERS
+// FILTER VOTERS - WITH AGE RANGE DROPDOWN
 // ============================================
 function filterVoters() {
     const search = searchInput.value.toLowerCase().trim();
     const sex = sexFilter.value;
     const party = partyFilter.value;
     const house = houseFilter.value;
-    const minAge = parseInt(ageMin.value);
-    const maxAge = parseInt(ageMax.value);
+    const ageRange = ageRangeFilter.value;
 
     filteredVoters = allVoters.filter(v => {
         let matchSearch = true;
@@ -553,9 +844,19 @@ function filterVoters() {
         if (house) matchHouse = (v.house || '') === house;
 
         let matchAge = true;
-        const voterAge = parseInt(v.age);
-        if (!isNaN(minAge) && !isNaN(voterAge)) matchAge = matchAge && voterAge >= minAge;
-        if (!isNaN(maxAge) && !isNaN(voterAge)) matchAge = matchAge && voterAge <= maxAge;
+        if (ageRange) {
+            const voterAge = parseInt(v.age);
+            if (!isNaN(voterAge) && voterAge > 0) {
+                const [min, max] = ageRange.split('-').map(Number);
+                if (max) {
+                    matchAge = voterAge >= min && voterAge <= max;
+                } else {
+                    matchAge = voterAge >= min;
+                }
+            } else {
+                matchAge = false;
+            }
+        }
 
         return matchSearch && matchSex && matchParty && matchHouse && matchAge;
     });
@@ -564,6 +865,7 @@ function filterVoters() {
     renderList(filteredVoters);
     updateStats(filteredVoters);
     renderTopHouses(filteredVoters);
+    renderAgeAnalytics(filteredVoters);
 
     if (gallerySection.style.display !== 'none') {
         galleryPage = 1;
@@ -581,8 +883,7 @@ function resetFilters() {
     sexFilter.value = '';
     partyFilter.value = '';
     houseFilter.value = '';
-    ageMin.value = '';
-    ageMax.value = '';
+    ageRangeFilter.value = '';
 
     document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
 
@@ -591,6 +892,7 @@ function resetFilters() {
     renderList(filteredVoters);
     updateStats(filteredVoters);
     renderTopHouses(filteredVoters);
+    renderAgeAnalytics(filteredVoters);
 
     if (gallerySection.style.display !== 'none') {
         galleryPage = 1;
@@ -605,8 +907,7 @@ searchInput.addEventListener('input', filterVoters);
 sexFilter.addEventListener('change', filterVoters);
 partyFilter.addEventListener('change', filterVoters);
 houseFilter.addEventListener('change', filterVoters);
-ageMin.addEventListener('change', filterVoters);
-ageMax.addEventListener('change', filterVoters);
+ageRangeFilter.addEventListener('change', filterVoters);
 
 resetBtn.addEventListener('click', resetFilters);
 
@@ -633,12 +934,8 @@ galleryNext.addEventListener('click', () => {
 });
 
 // ============================================
-// DIAGNOSTIC BUTTON (Add to filters if needed)
-// ============================================
-console.log('🔄 Voter Management System loaded');
-console.log('📌 Use the "Gallery View" button to see photos in a grid');
-
-// ============================================
 // INIT
 // ============================================
-fetchVoters();
+console.log('🔐 Voter Management System loaded');
+console.log('👤 Login with: admin / admin123');
+checkLogin();
